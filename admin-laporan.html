@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kas & Laporan — Jimpitan Admin</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 20px; opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--putih); border-radius: var(--radius-lg);
+      width: 100%; max-width: 420px; padding: 24px;
+      transform: translateY(8px); transition: transform .2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .stat-blue { background: #3b82f6; color: white; border-radius: var(--radius-lg); padding: 20px; }
+    .stat-red { background: #ef4444; color: white; border-radius: var(--radius-lg); padding: 20px; }
+    .stat-blue .label, .stat-red .label { font-size: 12px; opacity: .8; margin-bottom: 6px; }
+    .stat-blue .val, .stat-red .val { font-size: 28px; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    JimPAY
+  </div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user">
+    <span class="badge badge-info" style="font-size:11px;">Admin</span>
+    <span class="avatar" style="background:var(--hijau-muda);color:var(--hijau);">KR</span>
+    <div style="font-size:13px;font-weight:500;color:var(--teks);margin-right:4px;"><a href="admin-pengaturan.html" style="color:inherit;text-decoration:none;" id="admin-name">Memuat...</a></div>
+    <a href="#" onclick="apiLogout()" class="btn btn-outline btn-sm" style="margin-left:8px;">Keluar</a>
+  </div>
+</div>
+
+<div class="layout-admin">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Menu</div>
+    <a href="admin-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <a href="admin-verifikasi.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Verifikasi Dokumen
+    </a>
+    <div class="sidebar-section">Data</div>
+    <a href="admin-warga.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      Data Warga
+    </a>
+    <a href="admin-laporan.html" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
+      Kas &amp; Laporan
+    </a>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <div class="page-header row-flex">
+      <div>
+        <div class="page-title" id="page-title">Rekapitulasi Jimpitan RT 06</div>
+        <div class="page-sub" id="page-sub">Data himpunan iuran jimpitan warga.</div>
+      </div>
+      <div class="spacer"></div>
+    </div>
+
+    <!-- TRANSAPARANSI KAS -->
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <div class="stat-card" style="margin:0;">
+        <div class="label" style="font-size:12px; color:var(--teks-sekunder);">Saldo Awal (Sisa Tahun Lalu)</div>
+        <div class="val" id="kas-awal" style="font-size:18px; font-weight:700;">Rp 0</div>
+      </div>
+      <div class="kas-total" style="margin-bottom:0;">
+        <div class="label" id="label-masuk" style="font-size:12px;">Total Jimpitan Masuk Tahun Ini</div>
+        <div class="val" id="kas-masuk" style="font-size:18px;">Rp 0</div>
+        <div class="sub" id="kas-sub">dari target Rp 0 (0%)</div>
+      </div>
+      <div class="stat-red" style="margin:0;">
+        <div class="label" style="font-size:12px;">Total Pengeluaran Tahun Ini</div>
+        <div class="val" id="kas-keluar" style="font-size:18px;">Rp 0</div>
+      </div>
+      <div class="stat-blue" style="margin:0;">
+        <div class="label" style="font-size:12px;">Saldo Bersih Saat Ini</div>
+        <div class="val" id="kas-saldo" style="font-size:18px;">Rp 0</div>
+      </div>
+    </div>
+
+    <!-- KAS MASUK & PENGELUARAN -->
+    <div class="card" style="padding:16px; margin-bottom:24px;">
+      <div class="card-title">Rincian Jimpitan Masuk Per Bulan</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Bulan</th>
+              <th>Terkumpul</th>
+              <th>Status KK Lunas</th>
+              <th>Progres Target</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tabel-kas">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PENGELUARAN -->
+    <div class="card" style="padding:16px;">
+      <div class="row-flex" style="margin-bottom: 16px;">
+        <div class="card-title" style="margin:0;">Rincian Pengeluaran RT</div>
+        <button class="btn btn-primary btn-sm" onclick="openModalPengeluaran()">
+          Catat Pengeluaran
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tanggal</th>
+              <th>Keterangan</th>
+              <th>Nominal</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tabel-pengeluaran">
+            <tr><td colspan="5" style="text-align:center;padding:20px;">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PENGELUARAN -->
+<div class="modal-overlay" id="modal-pengeluaran">
+  <div class="modal">
+    <div style="font-size:16px;font-weight:600;margin-bottom:20px;">Catat Pengeluaran Baru</div>
+    <div class="form-group">
+      <label class="form-label">Tanggal</label>
+      <input type="date" class="form-input" id="inp-tgl" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Keterangan / Keperluan</label>
+      <input type="text" class="form-input" id="inp-ket" placeholder="Misal: Beli Alat Kebersihan" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nominal (Rp)</label>
+      <input type="number" class="form-input" id="inp-nominal" placeholder="Tanpa titik, misal: 50000" />
+    </div>
+    <div class="row-flex">
+      <button class="btn btn-outline" onclick="closeModalPengeluaran()">Batal</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="simpanPengeluaran()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+  async function init() {
+    const user = getAuthUser();
+    if (!user || user.role !== 'admin') {
+      window.location.href = 'login.html';
+      return;
+    }
+    document.getElementById('admin-name').textContent = user.nama;
+
+    const cy = new Date().getFullYear();
+    document.getElementById('page-sub').textContent = `Data himpunan dana jimpitan warga tahun ${cy}.`;
+    document.getElementById('label-masuk').textContent = `Total Jimpitan Masuk ${cy}`;
+
+    const data = await apiGetAdminDashboard();
+
+    // Kas Total
+    const persenTotal = Math.round((data.stats.total_masuk / data.stats.target_masuk) * 100) || 0;
+    if (document.getElementById('kas-awal')) document.getElementById('kas-awal').textContent = 'Rp ' + (data.stats.saldo_awal || 0).toLocaleString('id-ID');
+    document.getElementById('kas-masuk').textContent = 'Rp ' + data.stats.total_masuk.toLocaleString('id-ID');
+    document.getElementById('kas-sub').textContent = `dari target Rp ${data.stats.target_masuk.toLocaleString('id-ID')} (${persenTotal}%)`;
+    document.getElementById('kas-keluar').textContent = 'Rp ' + data.stats.total_pengeluaran.toLocaleString('id-ID');
+    document.getElementById('kas-saldo').textContent = 'Rp ' + data.stats.saldo_bersih.toLocaleString('id-ID');
+
+    // Tabel Rekap
+    const tbody = document.getElementById('tabel-kas');
+    tbody.innerHTML = data.rekap.map(r => {
+      let aksi = r.arsip 
+        ? `<div style="font-size:12px;color:var(--hijau);">✅ Diarsipkan pada<br>${r.tanggal_rekap}</div>`
+        : `<button class="btn btn-primary btn-sm" onclick="tutupBuku(${r.bulan_angka})">Tutup Buku</button>`;
+        
+      // Tambahkan tombol Ekspor
+      aksi += `<br><a href="api/export_laporan.php?bulan=${r.bulan_angka}&tahun=${new Date().getFullYear()}" class="btn btn-outline btn-sm" style="margin-top:6px; display:inline-block; font-size:11px; padding:4px 8px;">⬇️ Ekspor Excel</a>`;
+
+      return `
+      <tr>
+        <td>${r.bulan}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px;">${r.terkumpul}</td>
+        <td>${r.lunas}/${r.total_kk}</td>
+        <td>
+          <div class="progress-bar" style="margin-bottom:6px;"><div class="progress-val" style="width:${Math.round((r.lunas/r.total_kk)*100)||0}%"></div></div>
+          <div style="font-size:11px;color:var(--teks-sekunder);">${Math.round((r.lunas/r.total_kk)*100)||0}% selesai</div>
+        </td>
+        <td>
+          <span class="badge ${r.status_teks === 'Selesai' ? 'badge-lunas' : (r.status_teks === 'Diarsipkan' ? 'badge-lunas' : (r.status_teks === 'Ditutup' ? 'badge-belum' : 'badge-pending'))}">
+            ${r.status_teks}
+          </span>
+        </td>
+        <td>${aksi}</td>
+      </tr>
+      `;
+    }).join('');
+
+    await loadPengeluaran();
+  }
+
+  async function loadDataAndRender() {
+    await init();
+  }
+
+  let rawPengeluaran = [];
+
+  async function loadPengeluaran() {
+    rawPengeluaran = await apiGetPengeluaranList();
+    const tbody = document.getElementById('tabel-pengeluaran');
+    if (rawPengeluaran.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;">Belum ada pengeluaran dicatat.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rawPengeluaran.map(p => `
+      <tr>
+        <td style="color:var(--abu);">#${p.id}</td>
+        <td>${p.tanggal}</td>
+        <td style="font-weight:500;">${p.keterangan}</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--merah);">Rp ${p.nominal.toLocaleString('id-ID')}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="hapusPengeluaran(${p.id})">Hapus</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openModalPengeluaran() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('inp-tgl').value = today;
+    document.getElementById('inp-ket').value = '';
+    document.getElementById('inp-nominal').value = '';
+    document.getElementById('modal-pengeluaran').classList.add('open');
+  }
+
+  function closeModalPengeluaran() {
+    document.getElementById('modal-pengeluaran').classList.remove('open');
+  }
+
+  async function tutupBuku(bulan) {
+    if(!confirm(`Yakin ingin melakukan Tutup Buku untuk bulan ke-${bulan}?\n\nTindakan ini akan mengarsipkan status saldo dan lunas secara permanen. Data yang sudah diarsipkan tidak bisa diubah.`)) return;
+    try {
+      const btn = event.target;
+      const ori = btn.innerHTML;
+      btn.innerHTML = 'Menyimpan...';
+      btn.disabled = true;
+      
+      const cy = new Date().getFullYear();
+      await apiTutupBuku({ bulan: bulan, tahun: cy });
+      await init();
+    } catch(err) {
+      alert(err.message);
+    }
+  }
+
+  async function simpanPengeluaran() {
+    const tanggal = document.getElementById('inp-tgl').value.trim();
+    const keterangan = document.getElementById('inp-ket').value.trim();
+    const nominal = document.getElementById('inp-nominal').value.trim();
+
+    if(!tanggal || !keterangan || !nominal) {
+      alert('Semua kolom wajib diisi!');
+      return;
+    }
+
+    const btn = document.querySelector('#modal-pengeluaran .btn-primary');
+    btn.textContent = 'Menyimpan...';
+    btn.disabled = true;
+
+    try {
+      await apiAddPengeluaran({ tanggal, keterangan, nominal });
+      closeModalPengeluaran();
+      await loadDataAndRender(); // refresh full page
+    } catch(err) {
+      alert(err.message);
+    } finally {
+      btn.textContent = 'Simpan';
+      btn.disabled = false;
+    }
+  }
+
+  async function hapusPengeluaran(id) {
+    if(!confirm('Yakin ingin menghapus catatan pengeluaran ini?')) return;
+    try {
+      await apiDeletePengeluaran(id);
+      await loadDataAndRender(); // refresh full page
+    } catch(err) {
+      alert(err.message);
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Verifikasi Dokumen — Jimpitan Admin</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .filter-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+    .filter-tab {
+      padding:6px 14px; border-radius:99px;
+      border:1px solid var(--border); background:transparent;
+      font-size:12px; font-weight:500; cursor:pointer;
+      color:var(--teks-sekunder); transition:all .15s;
+    }
+    .filter-tab.active { background:var(--hijau); color:white; border-color:var(--hijau); }
+    .doc-card {
+      background:var(--putih);
+      border:1px solid var(--border);
+      border-radius:var(--radius-lg);
+      padding:18px;
+      margin-bottom:12px;
+      transition: box-shadow .15s;
+    }
+    .doc-card:hover { box-shadow: var(--shadow-md); }
+    .doc-card.sudah-verify { opacity:.6; }
+    .doc-header { display:flex; align-items:flex-start; gap:14px; }
+    .doc-thumb {
+      width:56px; height:56px;
+      border-radius:var(--radius);
+      background:var(--abu-muda);
+      border:1px solid var(--border);
+      display:flex; align-items:center; justify-content:center;
+      font-size:26px; flex-shrink:0; cursor:pointer;
+      transition:transform .15s;
+    }
+    .doc-thumb:hover { transform:scale(1.06); }
+    .doc-meta { flex:1; }
+    .doc-warga { font-size:14px; font-weight:600; margin-bottom:2px; }
+    .doc-detail { font-size:12px; color:var(--teks-sekunder); display:flex; gap:14px; flex-wrap:wrap; margin-bottom:6px; }
+    .doc-note { font-size:12px; color:var(--teks-sekunder); font-style:italic; margin-top:4px; padding:8px 10px; background:var(--abu-muda); border-radius:var(--radius); }
+    .doc-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+
+    .modal-preview {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.7);
+      display:flex; align-items:center; justify-content:center;
+      z-index:300; padding:20px;
+      opacity:0; pointer-events:none;
+      transition:opacity .2s;
+    }
+    .modal-preview.open { opacity:1; pointer-events:all; }
+    .preview-box {
+      background:var(--putih);
+      border-radius:var(--radius-lg);
+      padding:20px;
+      max-width:500px; width:100%;
+      text-align:center;
+    }
+    .preview-img {
+      width:100%; border-radius:var(--radius); background:var(--abu-muda);
+      height:260px; display:flex; align-items:center; justify-content:center;
+      font-size:60px; margin-bottom:14px;
+    }
+
+    .tolak-modal {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.45);
+      display:flex; align-items:center; justify-content:center;
+      z-index:301; padding:20px;
+      opacity:0; pointer-events:none; transition:opacity .2s;
+    }
+    .tolak-modal.open { opacity:1; pointer-events:all; }
+    .tolak-box {
+      background:var(--putih); border-radius:var(--radius-lg);
+      padding:24px; max-width:400px; width:100%;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    JimPAY
+  </div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user">
+    <span class="badge badge-info" style="font-size:11px;">Admin</span>
+    <span class="avatar" style="background:var(--hijau-muda);color:var(--hijau);">KR</span>
+    <div style="font-size:13px;font-weight:500;color:var(--teks);margin-right:4px;"><a href="admin-pengaturan.html" style="color:inherit;text-decoration:none;" id="admin-name">Memuat...</a></div>
+    <a href="#" onclick="apiLogout()" class="btn btn-outline btn-sm" style="margin-left:8px;">Keluar</a>
+  </div>
+</div>
+
+<div class="layout-admin">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Menu</div>
+    <a href="admin-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <a href="admin-verifikasi.html" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Verifikasi Dokumen
+      <span class="nav-badge" id="badge-count">2</span>
+    </a>
+    <div class="sidebar-section">Data</div>
+    <a href="admin-warga.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      Data Warga
+    </a>
+    <a href="admin-laporan.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
+      Kas &amp; Laporan
+    </a>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title">Verifikasi Dokumen Pembayaran</div>
+      <div class="page-sub">Semua bukti setoran wajib diverifikasi manual sebelum status berubah lunas.</div>
+    </div>
+
+    <div class="filter-tabs">
+      <button class="filter-tab active" onclick="filterDok('semua',this)">Semua</button>
+      <button class="filter-tab" onclick="filterDok('pending',this)">Menunggu verifikasi</button>
+      <button class="filter-tab" onclick="filterDok('terverifikasi',this)">Terverifikasi</button>
+      <button class="filter-tab" onclick="filterDok('ditolak',this)">Ditolak</button>
+    </div>
+
+    <div id="dok-list">
+      <!-- Diisi JS -->
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PREVIEW DOKUMEN -->
+<div class="modal-preview" id="modal-preview" onclick="tutupPreview()">
+  <div class="preview-box" onclick="event.stopPropagation()">
+    <div class="preview-img" id="preview-img">📄</div>
+    <div id="preview-nama" style="font-weight:600;margin-bottom:4px;"></div>
+    <div id="preview-meta" style="font-size:12px;color:var(--teks-sekunder);"></div>
+    <button class="btn btn-outline" style="margin-top:14px;" onclick="tutupPreview()">Tutup</button>
+  </div>
+</div>
+
+<!-- MODAL TOLAK -->
+<div class="tolak-modal" id="modal-tolak">
+  <div class="tolak-box">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Tolak dokumen</div>
+    <div style="font-size:13px;color:var(--teks-sekunder);margin-bottom:16px;">Masukkan alasan penolakan. Warga akan diberitahu untuk mengupload ulang.</div>
+    <div class="form-group">
+      <label class="form-label">Alasan penolakan *</label>
+      <textarea class="form-textarea" id="alasan-tolak" placeholder="Misal: bukti tidak terbaca, nama berbeda, nominal tidak sesuai..."></textarea>
+    </div>
+    <div class="row-flex">
+      <button class="btn btn-outline" onclick="tutupTolak()">Batal</button>
+      <button class="btn btn-danger" style="flex:1;" onclick="konfirmasiTolak()">Tolak Dokumen</button>
+    </div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+  let rawDokumen = [];
+  let currentFilter = 'semua';
+  let targetTolakId = null;
+
+  async function init() {
+    const user = getAuthUser();
+    if (!user || user.role !== 'admin') {
+      window.location.href = 'login.html';
+      return;
+    }
+    document.getElementById('admin-name').textContent = user.nama;
+
+    await loadData();
+  }
+
+  async function loadData() {
+    rawDokumen = await apiGetAdminVerifikasi();
+    render();
+  }
+
+  function filterDok(filter, el) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    render();
+  }
+
+  function render() {
+    const filtered = currentFilter === 'semua'
+      ? rawDokumen
+      : rawDokumen.filter(d => d.status === currentFilter);
+
+    const el = document.getElementById('dok-list');
+    if (filtered.length === 0) {
+      el.innerHTML = `<div style="color:var(--teks-sekunder);font-size:13px;padding:24px;text-align:center;">Tidak ada dokumen di kategori ini.</div>`;
+    } else {
+      el.innerHTML = filtered.map(d => {
+        const badge = d.status === 'pending'
+          ? `<span class="badge badge-pending">Menunggu verifikasi</span>`
+          : d.status === 'terverifikasi'
+            ? `<span class="badge badge-lunas">Terverifikasi</span>`
+            : `<span class="badge badge-belum">Ditolak</span>`;
+
+        const actions = d.status === 'pending' ? `
+          <button class="btn btn-success btn-sm" onclick="approve('${d.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><polyline points="20 6 9 17 4 12"/></svg>
+            Verifikasi
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="openTolak('${d.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Tolak
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="lihatDok('${d.id}')">Lihat dokumen</button>
+        ` : d.status === 'ditolak' ? `
+          <div style="font-size:12px;color:var(--merah);padding:6px 10px;background:var(--merah-muda);border-radius:var(--radius);">Alasan: ${d.alasan}</div>
+          <button class="btn btn-outline btn-sm" onclick="lihatDok('${d.id}')">Lihat dokumen</button>
+        ` : `
+          <button class="btn btn-outline btn-sm" onclick="lihatDok('${d.id}')">Lihat dokumen</button>
+        `;
+
+        return `
+          <div class="doc-card ${d.status !== 'pending' ? 'sudah-verify' : ''}" id="card-${d.id}">
+            <div class="doc-header">
+              <div class="doc-thumb" onclick="lihatDok('${d.id}')" title="Klik untuk preview">${d.emoji}</div>
+              <div class="doc-meta">
+                <div class="doc-warga">
+                  <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--hijau-muda);color:var(--hijau);font-size:10px;font-weight:600;margin-right:8px;">${d.inisial}</span>
+                  ${d.warga} — ${d.rumah}
+                </div>
+                <div class="doc-detail">
+                  <span>📅 ${d.bulan}</span>
+                  <span>💰 ${d.nominal}</span>
+                  <span>🕐 Dikirim ${d.tanggal}</span>
+                </div>
+                ${badge}
+                ${d.catatan ? `<div class="doc-note">"${d.catatan}"</div>` : ''}
+              </div>
+            </div>
+            <div class="doc-actions">${actions}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    const pendingCount = rawDokumen.filter(d => d.status === 'pending').length;
+    const badgeEl = document.getElementById('badge-count');
+    if (pendingCount > 0) { 
+      badgeEl.textContent = pendingCount; 
+      badgeEl.style.display=''; 
+    } else { 
+      badgeEl.style.display = 'none'; 
+    }
+  }
+
+  async function approve(id) {
+    if(!confirm('Apakah Anda yakin verifikasi dokumen ini? Status akan menjadi Lunas.')) return;
+    try {
+      await apiAksiVerifikasi(id, 'approve');
+      await loadData();
+    } catch(e) { alert(e.message); }
+  }
+
+  function openTolak(id) {
+    targetTolakId = id;
+    document.getElementById('alasan-tolak').value = '';
+    document.getElementById('modal-tolak').classList.add('open');
+  }
+
+  function tutupTolak() {
+    document.getElementById('modal-tolak').classList.remove('open');
+    targetTolakId = null;
+  }
+
+  async function konfirmasiTolak() {
+    const alasan = document.getElementById('alasan-tolak').value.trim();
+    if (!alasan) { alert('Masukkan alasan penolakan.'); return; }
+    
+    const btn = document.querySelector('#modal-tolak .btn-danger');
+    btn.textContent = 'Menolak...';
+    btn.disabled = true;
+
+    try {
+      await apiAksiVerifikasi(targetTolakId, 'reject', alasan);
+      tutupTolak();
+      await loadData();
+    } catch(e) {
+      alert(e.message);
+    } finally {
+      btn.textContent = 'Tolak Dokumen';
+      btn.disabled = false;
+    }
+  }
+
+  function lihatDok(id) {
+    const d = rawDokumen.find(x => x.id === id);
+    const previewContainer = document.getElementById('preview-img');
+    if (d.file_name && d.file_name.match(/\.(jpeg|jpg|png)$/i)) {
+      previewContainer.innerHTML = `<img src="uploads/${d.file_name}" style="max-width:100%; max-height:260px; object-fit:contain; border-radius:var(--radius);" />`;
+    } else {
+      previewContainer.textContent = d.emoji;
+    }
+    document.getElementById('preview-nama').textContent = d.warga + ' — ' + d.bulan;
+    document.getElementById('preview-meta').textContent = 'Dikirim ' + d.tanggal + ' · ' + d.nominal;
+    document.getElementById('modal-preview').classList.add('open');
+  }
+
+  function tutupPreview() {
+    document.getElementById('preview-img').innerHTML = '📄';
+    document.getElementById('modal-preview').classList.remove('open');
+  }
+
+  init();
+</script>
+</body>
+</html>

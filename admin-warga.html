@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Data Warga — Jimpitan Admin</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .warga-table { width: 100%; border-collapse: collapse; }
+    .warga-table th, .warga-table td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; }
+    .warga-table th { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--abu); }
+    .warga-table td { font-size: 13px; color: var(--teks); }
+    .warga-table tr:hover { background: var(--abu-muda); }
+    
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 20px;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--putih); border-radius: var(--radius-lg);
+      width: 100%; max-width: 420px; padding: 24px;
+      transform: translateY(8px); transition: transform .2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    JimPAY
+  </div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user">
+    <span class="badge badge-info" style="font-size:11px;">Admin</span>
+    <span class="avatar" style="background:var(--hijau-muda);color:var(--hijau);">KR</span>
+    <div style="font-size:13px;font-weight:500;color:var(--teks);margin-right:4px;"><a href="admin-pengaturan.html" style="color:inherit;text-decoration:none;" id="admin-name">Memuat...</a></div>
+    <a href="#" onclick="apiLogout()" class="btn btn-outline btn-sm" style="margin-left:8px;">Keluar</a>
+  </div>
+</div>
+
+<div class="layout-admin">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Menu</div>
+    <a href="admin-dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <a href="admin-verifikasi.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Verifikasi Dokumen
+    </a>
+    <div class="sidebar-section">Data</div>
+    <a href="admin-warga.html" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      Data Warga
+    </a>
+    <a href="admin-laporan.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
+      Kas &amp; Laporan
+    </a>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <div class="page-header row-flex">
+      <div>
+        <div class="page-title">Data Warga RT 06</div>
+        <div class="page-sub">Kelola data warga untuk akses sistem jimpitan.</div>
+      </div>
+      <div class="spacer"></div>
+      <input type="file" id="import-csv" accept=".csv" style="display:none;" onchange="handleImportCSV(event)">
+      <button class="btn btn-outline" style="margin-right:8px;" onclick="document.getElementById('import-csv').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import CSV
+      </button>
+      <button class="btn btn-primary" onclick="openModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Tambah Warga
+      </button>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden;">
+      <div class="table-wrap">
+        <table class="warga-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nama Kepala Keluarga</th>
+              <th>No. Rumah</th>
+              <th>Username Login</th>
+              <th style="width:100px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="warga-tbody">
+            <tr><td colspan="5" style="text-align:center;padding:20px;">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TAMBAH WARGA -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div style="font-size:16px;font-weight:600;margin-bottom:20px;">Tambah Warga Baru</div>
+    
+    <div class="form-group">
+      <label class="form-label">Nama Kepala Keluarga *</label>
+      <input type="text" class="form-input" id="inp-nama" placeholder="Masukkan nama lengkap" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nomor Rumah *</label>
+      <input type="text" class="form-input" id="inp-rumah" placeholder="Contoh: No. 45" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Username Login *</label>
+      <input type="text" class="form-input" id="inp-user" placeholder="Gunakan huruf kecil tanpa spasi" />
+    </div>
+    <div class="alert alert-info" style="font-size:12px;margin-bottom:20px;padding:10px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-top:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Password default untuk login adalah <strong>123</strong>
+    </div>
+
+    <div class="row-flex">
+      <button class="btn btn-outline" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="simpanWarga()">Simpan Warga</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT WARGA -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <div style="font-size:16px;font-weight:600;margin-bottom:20px;">Edit Data Warga</div>
+    <input type="hidden" id="edit-id" />
+    <div class="form-group">
+      <label class="form-label">Nama Kepala Keluarga</label>
+      <input type="text" class="form-input" id="edit-nama" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nomor Rumah</label>
+      <input type="text" class="form-input" id="edit-rumah" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Username Login</label>
+      <input type="text" class="form-input" id="edit-user" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password Login</label>
+      <input type="text" class="form-input" id="edit-pass" placeholder="Isi untuk ganti password, atau biarkan" />
+      <div style="font-size:11px;color:var(--teks-sekunder);margin-top:4px;">Biarkan kosong jika tidak ingin mengubah password warga.</div>
+    </div>
+    <div class="row-flex">
+      <button class="btn btn-outline" onclick="closeEditModal()">Batal</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="simpanEditWarga()">Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+  let rawWarga = [];
+
+  async function init() {
+    const user = getAuthUser();
+    if (!user || user.role !== 'admin') {
+      window.location.href = 'login.html';
+      return;
+    }
+    document.getElementById('admin-name').textContent = user.nama;
+
+    await loadData();
+  }
+
+  async function loadData() {
+    rawWarga = await apiGetWargaList();
+    render();
+  }
+
+  function render() {
+    const tbody = document.getElementById('warga-tbody');
+    if(rawWarga.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada data warga.</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = rawWarga.map(w => `
+      <tr>
+        <td style="color:var(--abu);">#${w.id}</td>
+        <td style="font-weight:500;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--hijau-muda);color:var(--hijau);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;">${w.inisial}</div>
+            ${w.nama_kk}
+          </div>
+        </td>
+        <td>${w.no_rumah}</td>
+        <td style="font-family:'DM Mono',monospace;">${w.username}</td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-outline btn-sm" style="color:var(--kuning);border-color:var(--kuning);" onclick="bukaEditWarga(${w.id})">Edit</button>
+            <button class="btn btn-outline btn-sm" onclick="hapusWarga(${w.id})">Hapus</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openModal() {
+    document.getElementById('inp-nama').value = '';
+    document.getElementById('inp-rumah').value = '';
+    document.getElementById('inp-user').value = '';
+    document.getElementById('modal-add').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modal-add').classList.remove('open');
+  }
+
+  async function simpanWarga() {
+    const nama_kk = document.getElementById('inp-nama').value.trim();
+    const no_rumah = document.getElementById('inp-rumah').value.trim();
+    const username = document.getElementById('inp-user').value.trim();
+
+    if(!nama_kk || !no_rumah || !username) {
+      alert('Semua field wajib diisi!');
+      return;
+    }
+
+    const btn = document.querySelector('#modal-add .btn-primary');
+    btn.textContent = 'Menyimpan...';
+    btn.disabled = true;
+
+    try {
+      await apiAddWarga({ nama_kk, no_rumah, username });
+      closeModal();
+      await loadData();
+    } catch(err) {
+      alert(err.message);
+    } finally {
+      btn.textContent = 'Simpan Warga';
+      btn.disabled = false;
+    }
+  }
+
+  async function hapusWarga(id) {
+    if(!confirm('Yakin ingin menghapus warga ini? Seluruh data tunggakan mungkin akan terpengaruh.')) return;
+    try {
+      await apiDeleteWarga(id);
+      await loadData();
+    } catch(err) {
+      alert(err.message);
+    }
+  }
+
+  function bukaEditWarga(id) {
+    const w = rawWarga.find(x => String(x.id) === String(id));
+    if(!w) {
+      alert("Data warga tidak ditemukan!");
+      return;
+    }
+    document.getElementById('edit-id').value = w.id;
+    document.getElementById('edit-nama').value = w.nama_kk;
+    document.getElementById('edit-rumah').value = w.no_rumah;
+    document.getElementById('edit-user').value = w.username;
+    document.getElementById('edit-pass').value = '';
+    document.getElementById('modal-edit').classList.add('open');
+  }
+
+  function closeEditModal() {
+    document.getElementById('modal-edit').classList.remove('open');
+  }
+
+  async function simpanEditWarga() {
+    const id = document.getElementById('edit-id').value;
+    const nama_kk = document.getElementById('edit-nama').value.trim();
+    const no_rumah = document.getElementById('edit-rumah').value.trim();
+    const username = document.getElementById('edit-user').value.trim();
+    const password = document.getElementById('edit-pass').value.trim();
+
+    if(!nama_kk || !no_rumah || !username) {
+      alert('Nama, Rumah, dan Username wajib diisi!');
+      return;
+    }
+
+    const btn = document.querySelector('#modal-edit .btn-primary');
+    btn.textContent = 'Menyimpan...';
+    btn.disabled = true;
+
+    try {
+      await apiEditWarga({ id, nama_kk, no_rumah, username, password });
+      closeEditModal();
+      await loadData();
+    } catch(err) {
+      alert(err.message);
+    } finally {
+      btn.textContent = 'Simpan Perubahan';
+      btn.disabled = false;
+    }
+  }
+
+  async function handleImportCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const text = e.target.result;
+      const lines = text.split('\n');
+      
+      const wargaData = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        // Lewati baris pertama jika itu adalah header (mengandung kata 'nama' atau 'username')
+        if (i === 0 && (line.toLowerCase().includes('nama') || line.toLowerCase().includes('username'))) {
+          continue;
+        }
+
+        // CSV biasa dipisahkan koma (,), titik koma (;), atau tab (\t)
+        // Kita coba split dengan koma atau titik koma
+        let cols = line.split(/[,;]/);
+        if (cols.length < 5) continue; // Pastikan minimal ada 5 kolom (No, Nama, Gang, Username, Password)
+
+        wargaData.push({
+          nama: cols[1].trim(),
+          gang: cols[2].trim(),
+          username: cols[3].trim(),
+          password: cols[4].trim()
+        });
+      }
+
+      if (wargaData.length === 0) {
+        alert("Tidak ada data warga valid yang ditemukan dalam file CSV ini.");
+        return;
+      }
+
+      if (!confirm(`Ditemukan ${wargaData.length} data warga. Lanjutkan import massal?`)) return;
+
+      try {
+        const btn = document.querySelector('button[onclick="document.getElementById(\'import-csv\').click()"]');
+        const ori = btn.innerHTML;
+        btn.innerHTML = 'Mengimpor...';
+        btn.disabled = true;
+
+        const res = await apiImportWarga(wargaData);
+        alert(res.message || "Import berhasil!");
+        
+        btn.innerHTML = ori;
+        btn.disabled = false;
+        event.target.value = ''; // Reset input
+        
+        await loadData();
+      } catch (err) {
+        alert(err.message);
+        event.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  init();
+</script>
+</body>
+</html>

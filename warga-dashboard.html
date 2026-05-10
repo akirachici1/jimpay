@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard Warga — Jimpitan</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .warga-layout { max-width: 720px; margin: 0 auto; padding: 24px 20px; }
+    .section-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--teks-sekunder); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+    .dot-lunas { background: var(--hijau-medium); }
+    .dot-belum { background: var(--merah); }
+    .dot-pending { background: #e6a816; }
+    .dot-upcoming { background: var(--border); }
+
+    /* Modal overlay */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 20px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--putih);
+      border-radius: var(--radius-lg);
+      width: 100%; max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 24px;
+      transform: translateY(8px);
+      transition: transform .2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .modal-title { font-size: 16px; font-weight: 600; flex: 1; }
+    .modal-close { width: 28px; height: 28px; border: none; background: var(--abu-muda); border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+
+    .checkbox-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .checkbox-item:last-child { border-bottom: none; }
+    .checkbox-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--hijau); cursor: pointer; }
+    .cb-info { flex: 1; }
+    .cb-bulan { font-size: 13px; font-weight: 500; }
+    .cb-nominal { font-size: 12px; color: var(--teks-sekunder); }
+    .cb-badge { margin-left: auto; }
+
+    .total-box {
+      display: flex; justify-content: space-between;
+      padding: 12px 0;
+      border-top: 1px solid var(--border);
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+    .step-indicator { display: flex; gap: 8px; margin-bottom: 20px; }
+    .step {
+      flex: 1; padding: 8px; border-radius: var(--radius);
+      text-align: center; font-size: 11px; font-weight: 500;
+    }
+    .step.active { background: var(--hijau-muda); color: var(--hijau); }
+    .step.done { background: var(--hijau); color: white; }
+    .step.inactive { background: var(--abu-muda); color: var(--abu); }
+
+    .success-box {
+      text-align: center; padding: 24px 16px;
+    }
+    .success-icon {
+      width: 56px; height: 56px;
+      background: var(--hijau-muda);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+      font-size: 26px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    JimPAY
+  </div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user">
+    <span class="avatar" id="top-avatar">-</span>
+    <div>
+      <div style="font-size:13px;font-weight:500;color:var(--teks);"><a href="warga-pengaturan.html" style="color:inherit;text-decoration:none;" id="top-name">Memuat...</a></div>
+      <div style="font-size:11px;color:var(--teks-sekunder);" id="top-rumah">-</div>
+    </div>
+    <a href="#" onclick="apiLogout()" class="btn btn-outline btn-sm" style="margin-left:8px;">Keluar</a>
+  </div>
+</div>
+
+<div class="warga-layout">
+
+  <!-- ALERT -->
+  <div id="alert-container"></div>
+
+  <!-- STAT -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Sudah Bayar</div>
+      <div class="stat-val hijau" id="stat-lunas">-</div>
+      <div class="stat-sub">bulan tahun ini</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Belum Bayar</div>
+      <div class="stat-val merah" id="stat-belum">-</div>
+      <div class="stat-sub">bulan menunggak</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Menunggu Verifikasi</div>
+      <div class="stat-val kuning" id="stat-pending">-</div>
+      <div class="stat-sub">dokumen</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Setoran</div>
+      <div class="stat-val" style="font-size:18px;" id="stat-total">Rp 0</div>
+      <div class="stat-sub" id="stat-total-year">tahun berjalan</div>
+    </div>
+  </div>
+
+  <!-- TRANSAPARANSI KAS RT -->
+  <div class="card" style="margin-bottom:24px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border:1px solid #bae6fd;">
+    <div class="section-title" style="margin-top:0;">Transparansi Dana RT 06</div>
+    <div style="font-size:12px;color:var(--teks-sekunder);margin-bottom:12px;">Informasi ringkasan kas masuk dan pengeluaran RT secara keseluruhan.</div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+      <div style="background:white; border-radius:var(--radius); padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.05);">
+        <div style="font-size:11px; color:var(--teks-sekunder); margin-bottom:4px;">Total Kas Terkumpul</div>
+        <div style="font-size:16px; font-weight:600; color:var(--hijau);" id="rt-masuk">Rp 0</div>
+      </div>
+      <div style="background:white; border-radius:var(--radius); padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.05);">
+        <div style="font-size:11px; color:var(--teks-sekunder); margin-bottom:4px;">Total Pengeluaran</div>
+        <div style="font-size:16px; font-weight:600; color:var(--merah);" id="rt-keluar">Rp 0</div>
+      </div>
+      <div style="background:white; border-radius:var(--radius); padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.05); border-left:3px solid #3b82f6;">
+        <div style="font-size:11px; color:var(--teks-sekunder); margin-bottom:4px;">Saldo Kas Bersih</div>
+        <div style="font-size:16px; font-weight:600; color:#1e40af;" id="rt-saldo">Rp 0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULAN GRID -->
+  <div class="card">
+    <div class="row-flex" style="margin-bottom:12px;">
+      <div class="section-title" style="margin:0;" id="title-status-bayar">Status pembayaran 2026</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot dot-lunas"></div> Lunas</div>
+        <div class="legend-item"><div class="legend-dot dot-pending"></div> Pending</div>
+        <div class="legend-item"><div class="legend-dot dot-belum"></div> Belum</div>
+      </div>
+    </div>
+    <div class="month-grid" id="month-grid">
+      <!-- Diisi JS -->
+    </div>
+    <button class="btn btn-primary" onclick="openModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Bayar Sekarang
+    </button>
+  </div>
+
+  <!-- RIWAYAT -->
+  <div class="card">
+    <div class="card-title">Riwayat setoran terakhir</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Bulan</th>
+            <th>Nominal</th>
+            <th>Tanggal kirim</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="riwayat-tbody">
+          <!-- Diisi JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SETORAN -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Setoran Jimpitan</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <!-- STEP 1: Pilih bulan -->
+    <div id="step-1">
+      <div class="step-indicator">
+        <div class="step active">1 Pilih bulan</div>
+        <div class="step inactive">2 Upload bukti</div>
+        <div class="step inactive">3 Selesai</div>
+      </div>
+      <p style="font-size:13px;color:var(--teks-sekunder);margin-bottom:14px;">Centang bulan yang ingin kamu bayar sekarang.</p>
+
+      <div id="cb-list">
+        <!-- Diisi JS -->
+      </div>
+
+      <div class="total-box">
+        <span>Total pembayaran</span>
+        <span id="total-val">Rp 0</span>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="goStep2()">Lanjut →</button>
+    </div>
+
+    <!-- STEP 2: Upload -->
+    <div id="step-2" style="display:none;">
+      <div class="step-indicator">
+        <div class="step done">✓ Pilih bulan</div>
+        <div class="step active">2 Pembayaran & Upload</div>
+        <div class="step inactive">3 Selesai</div>
+      </div>
+      
+      <div style="text-align:center; margin-bottom: 20px; padding: 16px; background: var(--abu-muda); border: 1px solid var(--border); border-radius: var(--radius-lg);">
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Silakan Scan QRIS Berikut:</div>
+        <img src="qris.code.jpeg" alt="QRIS Code" style="width: 100%; max-width: 220px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 12px; display:inline-block;">
+        <div style="font-size: 13px; color: var(--teks-sekunder);">Total yang harus ditransfer:</div>
+        <div style="font-size: 22px; font-weight: bold; color: var(--hijau);" id="qris-total-val">Rp 0</div>
+      </div>
+      <div class="alert alert-info" style="font-size:12px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        Bukti pembayaran akan diverifikasi manual oleh admin sebelum status berubah menjadi lunas.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Upload foto / scan bukti pembayaran *</label>
+        <div class="upload-box" id="upload-box" onclick="document.getElementById('file-input').click()">
+          <div class="upload-icon">📎</div>
+          <div id="upload-text">Klik untuk memilih file</div>
+          <div style="font-size:11px;margin-top:4px;">JPG, PNG, PDF — maks 5 MB</div>
+        </div>
+        <input type="file" id="file-input" accept="image/*,.pdf" style="display:none;" onchange="fileSelected(event)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tanggal Pembayaran *</label>
+        <input type="date" class="form-input" id="inp-tanggal-bayar" />
+        <div style="font-size:11px;color:var(--teks-sekunder);margin-top:4px;">Hanya dapat mengisi tanggal pada bulan ini.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Catatan (opsional)</label>
+        <textarea class="form-textarea" id="catatan" placeholder="Misal: bayar via transfer BRI, nomor ref 123456..."></textarea>
+      </div>
+      <div class="row-flex">
+        <button class="btn btn-outline" onclick="goStep1()">← Kembali</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="kirimSetoran()">Kirim Setoran</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Sukses -->
+    <div id="step-3" style="display:none;">
+      <div class="step-indicator">
+        <div class="step done">✓ Pilih bulan</div>
+        <div class="step done">✓ Upload bukti</div>
+        <div class="step done">✓ Terkirim</div>
+      </div>
+      <div class="success-box">
+        <div class="success-icon">✅</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Setoran berhasil dikirim!</div>
+        <div style="font-size:13px;color:var(--teks-sekunder);line-height:1.7;">
+          Bukti pembayaran kamu sudah masuk ke admin.<br>
+          Status akan berubah <strong>Lunas</strong> setelah diverifikasi.
+        </div>
+        <button class="btn btn-primary" style="margin-top:20px;" onclick="closeModal(); location.reload();">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+  let user = null;
+  let selectedBulan = [];
+  let belumBayarData = [];
+
+  async function init() {
+    user = getAuthUser();
+    if (!user || user.role !== 'warga') {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    document.getElementById('top-name').textContent = user.nama;
+    document.getElementById('top-rumah').textContent = user.rumah || '';
+    document.getElementById('top-avatar').textContent = user.inisial || 'W';
+
+    const currentYear = new Date().getFullYear();
+    document.getElementById('title-status-bayar').textContent = `Status pembayaran ${currentYear}`;
+    document.getElementById('stat-total-year').textContent = `tahun ${currentYear}`;
+    const data = await apiGetWargaDashboard(user.id, currentYear);
+    
+    // Stats
+    document.getElementById('stat-lunas').textContent = data.stats.lunas;
+    document.getElementById('stat-belum').textContent = data.stats.belum;
+    document.getElementById('stat-pending').textContent = data.stats.pending;
+    document.getElementById('stat-total').textContent = 'Rp ' + data.stats.totalNominal.toLocaleString('id-ID');
+
+    // Transparansi
+    document.getElementById('rt-masuk').textContent = 'Rp ' + data.stats.totalMasukRT.toLocaleString('id-ID');
+    document.getElementById('rt-keluar').textContent = 'Rp ' + data.stats.totalPengeluaran.toLocaleString('id-ID');
+    document.getElementById('rt-saldo').textContent = 'Rp ' + data.stats.saldoBersih.toLocaleString('id-ID');
+
+    // Alert
+    if (data.stats.belum > 0) {
+      document.getElementById('alert-container').innerHTML = `
+        <div class="alert alert-warning">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>Kamu memiliki <strong>${data.stats.belum} bulan</strong> yang belum terbayar. Segera lakukan setoran agar tidak menunggak.</span>
+        </div>
+      `;
+    }
+
+    // Grid
+    const gridEl = document.getElementById('month-grid');
+    gridEl.innerHTML = data.grid.map(g => {
+      let badge = '';
+      if (g.status === 'lunas') badge = '<span class="badge badge-lunas">Lunas</span>';
+      else if (g.status === 'terlambat') badge = '<span class="badge" style="background:#fef08a;color:#a16207;">Lunas (Terlambat)</span>';
+      else if (g.status === 'pending') badge = '<span class="badge badge-pending">Pending</span>';
+      else if (g.status === 'belum' || g.status === 'ditolak') badge = '<span class="badge badge-belum">'+(g.status==='ditolak'?'Ditolak':'Belum')+'</span>';
+      else badge = '<span style="font-size:11px;">—</span>';
+      
+      return `<div class="month-box ${g.status}"><div class="month-name">${g.nama_bulan}</div>${badge}</div>`;
+    }).join('');
+
+    // Riwayat
+    const tbody = document.getElementById('riwayat-tbody');
+    tbody.innerHTML = data.riwayat.map(r => {
+      let badge = r.status === 'pending' ? '<span class="badge badge-pending">Menunggu verifikasi</span>' : 
+                  r.status === 'ditolak' ? '<span class="badge badge-belum" title="'+r.alasan_tolak+'">Ditolak</span>' : 
+                  r.status === 'terlambat' ? '<span class="badge" style="background:#fef08a;color:#a16207;">Lunas (Terlambat)</span>' :
+                  '<span class="badge badge-lunas">Lunas</span>';
+      return `
+        <tr>
+          <td>${r.nama_bulan} ${r.tahun}</td>
+          <td>Rp ${r.nominal.toLocaleString('id-ID')}</td>
+          <td>${r.tgl_bayar}</td>
+          <td>${badge}</td>
+        </tr>
+      `;
+    }).join('') || '<tr><td colspan="4" style="text-align:center;padding:20px;">Belum ada riwayat setoran.</td></tr>';
+
+    // Persiapkan data untuk modal (bulan yg belum dibayar)
+    belumBayarData = data.grid.filter(g => g.status === 'belum' || g.status === 'ditolak');
+    const cbList = document.getElementById('cb-list');
+    
+    cbList.innerHTML = data.grid.map(g => {
+      if (g.status === 'lunas' || g.status === 'pending') return ''; // tidak ditampilkan di opsi
+      
+      const isBelum = g.status === 'belum' || g.status === 'ditolak';
+      const disabled = !isBelum ? 'disabled' : '';
+      const color = isBelum ? '' : 'color:var(--abu);';
+      const badge = isBelum 
+        ? `<span class="badge badge-belum cb-badge">${g.status==='ditolak'?'Ditolak':'Belum bayar'}</span>`
+        : `<span class="badge" style="background:var(--abu-muda);color:var(--abu);margin-left:auto;">—</span>`;
+      const nominal = isBelum ? `Rp ${g.nominal.toLocaleString('id-ID')}` : 'Belum jatuh tempo';
+      
+      return `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <input type="checkbox" id="cb-${g.bulan}" value="${g.bulan}" onchange="hitungTotal()" ${disabled} style="width:16px;height:16px;cursor:${isBelum?'pointer':'default'}" />
+        <label for="cb-${g.bulan}" class="cb-info" style="cursor:${isBelum?'pointer':'default'};">
+          <div class="cb-bulan" style="${color}">${g.nama_bulan} ${currentYear}</div>
+          <div class="cb-nominal">${nominal}</div>
+        </label>
+        ${badge}
+      </div>
+      `;
+    }).join('');
+  }
+
+  function openModal() {
+    if (belumBayarData.length === 0) {
+      alert('Tidak ada tagihan yang perlu dibayar saat ini.');
+      return;
+    }
+    document.getElementById('modal-overlay').classList.add('open');
+    goStep1();
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+
+  function closeModalOutside(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  }
+
+  function hitungTotal() {
+    selectedBulan = [];
+    const checkboxes = document.querySelectorAll('#cb-list input[type="checkbox"]:checked');
+    checkboxes.forEach(cb => selectedBulan.push(parseInt(cb.value)));
+    let total = 0;
+    selectedBulan.forEach(b => {
+      const g = belumBayarData.find(x => x.bulan === b);
+      if (g) total += g.nominal;
+    });
+    document.getElementById('total-val').textContent = 'Rp ' + total.toLocaleString('id-ID');
+  }
+
+  function goStep1() {
+    document.getElementById('step-1').style.display = 'block';
+    document.getElementById('step-2').style.display = 'none';
+    document.getElementById('step-3').style.display = 'none';
+    document.getElementById('modal-title').textContent = 'Setoran Jimpitan';
+
+    // Set default date to today and min date to first day of this month
+    const today = new Date();
+    const minDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const inpTgl = document.getElementById('inp-tanggal-bayar');
+    inpTgl.value = today.toISOString().split('T')[0];
+    inpTgl.min = minDate.toISOString().split('T')[0];
+  }
+
+  function goStep2() {
+    if (selectedBulan.length === 0) {
+      alert('Pilih minimal satu bulan terlebih dahulu.');
+      return;
+    }
+    document.getElementById('step-1').style.display = 'none';
+    document.getElementById('step-2').style.display = 'block';
+    document.getElementById('modal-title').textContent = 'Pembayaran & Upload Bukti';
+    
+    // Set total nominal on QRIS screen
+    let total = 0;
+    selectedBulan.forEach(b => {
+      const g = belumBayarData.find(x => x.bulan === b);
+      if (g) total += g.nominal;
+    });
+    document.getElementById('qris-total-val').textContent = 'Rp ' + total.toLocaleString('id-ID');
+  }
+
+  function fileSelected(e) {
+    const file = e.target.files[0];
+    if (file) {
+      document.getElementById('upload-text').textContent = '✓ ' + file.name;
+      document.getElementById('upload-box').style.borderColor = 'var(--hijau-medium)';
+      document.getElementById('upload-box').style.background = 'var(--hijau-muda)';
+    }
+  }
+
+  async function kirimSetoran() {
+    const file = document.getElementById('file-input').files[0];
+    const tglBayar = document.getElementById('inp-tanggal-bayar').value;
+
+    if (!file) {
+      alert('Harap upload bukti pembayaran terlebih dahulu.');
+      return;
+    }
+    if (!tglBayar) {
+      alert('Harap isi tanggal pembayaran.');
+      return;
+    }
+    
+    const catatan = document.getElementById('catatan').value;
+    const btn = document.querySelector('#step-2 .btn-primary');
+    const oriText = btn.innerHTML;
+    btn.innerHTML = 'Mengirim...';
+    btn.disabled = true;
+
+    try {
+      await apiKirimSetoran(user.id, selectedBulan, file, catatan, tglBayar);
+      document.getElementById('step-2').style.display = 'none';
+      document.getElementById('step-3').style.display = 'block';
+      document.getElementById('modal-title').textContent = 'Berhasil!';
+    } catch (err) {
+      alert('Gagal mengirim setoran: ' + err.message);
+    } finally {
+      btn.innerHTML = oriText;
+      btn.disabled = false;
+    }
+  }
+
+  // Initialize page
+  init();
+</script>
+</body>
+</html>

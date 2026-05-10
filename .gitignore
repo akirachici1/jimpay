@@ -1,0 +1,10 @@
+# Ignore environment files
+.env
+
+# Ignore uploaded user files
+/uploads/*
+
+# Ignore IDE/editor files
+.vscode/
+.idea/
+*.log

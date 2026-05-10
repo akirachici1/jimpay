@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — JimPAY</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--bg);
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 400px;
+      padding: 24px;
+    }
+
+    .login-logo {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .login-logo .icon-wrap {
+      width: 56px;
+      height: 56px;
+      background: var(--hijau-muda);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+    }
+
+    .login-logo .icon-wrap svg {
+      width: 28px;
+      height: 28px;
+      color: var(--hijau);
+    }
+
+    .login-logo h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--teks);
+    }
+
+    .login-logo p {
+      font-size: 13px;
+      color: var(--teks-sekunder);
+      margin-top: 4px;
+    }
+
+    .login-card {
+      background: var(--putih);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .login-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--teks-sekunder);
+    }
+
+    .role-tabs {
+      display: flex;
+      background: var(--abu-muda);
+      border-radius: var(--radius);
+      padding: 3px;
+      margin-bottom: 20px;
+    }
+
+    .role-tab {
+      flex: 1;
+      text-align: center;
+      padding: 7px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--teks-sekunder);
+      transition: all .15s;
+    }
+
+    .role-tab.active {
+      background: var(--putih);
+      color: var(--teks);
+      font-weight: 500;
+      box-shadow: var(--shadow);
+    }
+
+    .error-msg {
+      background: var(--merah-muda);
+      border: 1px solid #f5b8b5;
+      color: var(--merah);
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 14px;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-wrap">
+    <div class="login-logo">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      </div>
+      <h1>JimPAY</h1>
+      <p>Sistem Pembayaran Iuran Jimpitan RT 06</p>
+    </div>
+
+    <div class="login-card">
+      <div class="role-tabs">
+        <div class="role-tab active" onclick="switchRole('warga', this)">Warga</div>
+        <div class="role-tab" onclick="switchRole('admin', this)">Admin / Ketua RT</div>
+      </div>
+
+      <div id="error-msg" class="error-msg">Username atau password salah. Coba lagi.</div>
+
+      <div class="form-group">
+        <label class="form-label" id="label-user">Username</label>
+        <input class="form-input" id="input-user" type="text" placeholder="Masukkan username" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="input-pass" type="password" placeholder="Masukkan password" />
+      </div>
+
+      <button class="btn btn-primary btn-full" style="margin-top:4px;" onclick="doLogin()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
+        </svg>
+        Masuk
+      </button>
+    </div>
+
+    <div class="login-footer">
+      Lupa password? Hubungi ketua RT setempat.<br>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script>
+    let currentRole = 'warga';
+
+    function switchRole(role, el) {
+      currentRole = role;
+      document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('label-user').textContent =
+        role === 'admin' ? 'Username' : 'Username';
+    }
+
+    async function doLogin() {
+      const user = document.getElementById('input-user').value.trim();
+      const pass = document.getElementById('input-pass').value;
+      const errEl = document.getElementById('error-msg');
+      const btn = document.querySelector('.btn-primary');
+
+      if (!user || !pass) {
+        errEl.textContent = 'Harap isi username dan password.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      errEl.style.display = 'none';
+      const originalText = btn.innerHTML;
+      btn.innerHTML = 'Memproses...';
+      btn.disabled = true;
+
+      try {
+        const res = await apiLogin(user, pass, currentRole);
+        if (res.success) {
+          window.location.href = currentRole === 'admin' ? 'admin-dashboard.html' : 'warga-dashboard.html';
+        } else {
+          throw new Error(res.message || 'Username atau password salah.');
+        }
+      } catch (err) {
+        errEl.textContent = err.message || 'Login gagal. Coba lagi.';
+        errEl.style.display = 'block';
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('input-pass').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+  </script>
+</body>
+
+</html>
