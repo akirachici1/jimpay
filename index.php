@@ -1,2 +1,3 @@
 <?php
-echo "Jimpay API running";
+header("Location: frontend/login.html");
+exit;
