@@ -6,7 +6,7 @@
  */
 
 const USE_MOCK = false;
-const BASE_URL = 'http://localhost/jimpitan-web/api';
+const BASE_URL = '/backend/api';
 
 // --- INITIALIZE MOCK DB ---
 function initMockDB() {
